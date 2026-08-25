@@ -1,77 +1,90 @@
-const fs = require('fs/promises')
+const {ObjectId} = require('mongodb')
 
-const path = './db.json'
+async function getAllItems(db, offset = 0, limit = 10) {
+    const collection = db.collection('items')
 
-async function readItems() {
-    const data = await fs.readFile(path, 'utf-8')
-
-    return JSON.parse(data)
+    return await collection
+    .find()
+    .skip(offset)
+    .limit(limit)
+    .toArray()
 }
 
-async function saveItems(items) {
-    const data = JSON.stringify(items, null, 2)
 
-    await fs.writeFile(path, data)
-}
+async function getItemById(db, id) {
+    const collection = db.collection('items')
 
-async function getAllItems() {
-    return await readItems()
-}
-
-async function getItemById(id) {
-    const items = await readItems()
-
-    return items.find(user => user.id === id)
-}
-
-async function createItem(itemData) {
-    const items = await readItems()
-
-    const newItem = {
-        id: items.length > 0 ? items[items.length - 1].id + 1 : 1,
-        name: itemData.name,
-        description: itemData.description,
-        date: new Date().toISOString()
-    }
-
-    items.push(newItem)
-
-    await saveItems(items)
-
-    return newItem
-}
-
-async function updateItem(id, itemData) {
-    const items = await readItems()
-
-    const item = items.find(item => item.id === id)
+    const item = await collection.findOne({
+        _id: new ObjectId(id)
+    })
 
     if (!item) {
-        return null
+        throw new Error('Item not found')
     }
-
-    item.name = itemData.name
-    item.description = itemData.description
-
-    await saveItems(items)
 
     return item
 }
 
-async function deleteItem(id) {
-    const items = await readItems()
 
-    const index = items.findIndex(item => item.id === id)
+async function createItem(db, itemData) {
+    const collection = db.collection('items')
 
-    if (index === -1) {
-        return null
+    const newItem = {
+        name: itemData.name,
+        description: itemData.description,
+        date: new Date().toISOString().split('T')[0]
     }
 
-    const deletedItem = items.splice(index, 1)[0]
-    
-    await saveItems(items)
+    const result = await collection.insertOne(newItem)
 
-    return deletedItem
+    return {
+        _id: result.insertedId,
+        ...newItem
+    }
+}
+
+async function updateItem(db, id, itemData) {
+    const collection = db.collection('items')
+
+    const result = await collection.findOneAndUpdate(
+        {
+            _id: new ObjectId(id)
+        },
+        {
+            $set: {
+                name: itemData.name,
+                description: itemData.description
+            }
+        },
+        {
+            returnDocument: 'after'
+        }
+    )
+
+    if (!result) {
+        throw new Error('Item not found')
+    }
+
+    return result
+}
+
+
+async function deleteItem(db, id) {
+    const collection = db.collection('items')
+
+    const item = await collection.findOne({
+        _id: new ObjectId(id)
+    })
+
+    if (!item) {
+        throw new Error('Item not found')
+    }
+
+    await collection.deleteOne({
+        _id: new ObjectId(id)
+    })
+
+    return item
 }
 
 module.exports = {

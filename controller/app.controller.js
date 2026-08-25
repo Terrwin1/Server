@@ -1,98 +1,135 @@
-const service = require('../service/app.service')
+const service = require('../Service/app.service')
+const validation = require('../Validation/app.validation')
 
-async function getList(req, res) {
-    const items = await service.getAllItems()
 
-    res.writeHead(200)
+async function getList(req, res, db) {
+    try {
+        const url = new URL(req.url, 'http://localhost')
 
-    res.end(JSON.stringify(items))
-}
+        const offset = Number(url.searchParams.get('offset')) || 0
+        const limit = Number(url.searchParams.get('limit')) || 10
 
-async function getById(req, res) {
-    const id = Number(req.url.split('/')[2])
+        const items = await service.getAllItems(db, offset, limit)
 
-    const item = await service.getItemById(id)
+        res.writeHead(200)
 
-    if (!item) {
-        res.writeHead(404)
+        res.end(JSON.stringify(items))
 
-        return res.end(JSON.stringify({
-            message: 'Item not found'
+    } catch (error) {
+        res.writeHead(500)
+
+        res.end(JSON.stringify({
+            message: 'Internal server error'
         }))
     }
-
-    res.writeHead(200)
-
-    res.end(JSON.stringify(item))
 }
 
-async function create(req, res) {
+
+async function getById(req, res, db) {
+    try {
+        const id = req.url.split('/')[2]
+
+        const item = await service.getItemById(db, id)
+
+        res.writeHead(200)
+
+        res.end(JSON.stringify(item))
+
+    } catch (error) {
+        res.writeHead(404)
+
+        res.end(JSON.stringify({
+            message: error.message
+        }))
+    }
+}
+
+
+async function create(req, res, db) {
     try {
         const body = await getRequestBody(req)
 
         const itemData = JSON.parse(body)
 
-        const item = await service.createItem(itemData)
+        const { error, value } = validation.itemSchema.validate(itemData)
+
+        if (error) {
+            res.writeHead(400)
+
+            return res.end(JSON.stringify({
+                message: error.details[0].message
+            }))
+        }
+
+        const item = await service.createItem(db, value)
 
         res.writeHead(201)
 
         res.end(JSON.stringify(item))
+
     } catch (error) {
         res.writeHead(400)
 
         res.end(JSON.stringify({
-            message: 'Invalid request body'
+            message: error.message
         }))
     }
 }
 
-async function update(req, res) {
+
+async function update(req, res, db) {
     try {
-        const id = Number(req.url.split('/')[3])
+        const id = req.url.split('/')[3]
 
         const body = await getRequestBody(req)
 
         const itemData = JSON.parse(body)
 
-        const item = await service.updateItem(id, itemData)
+        const { error, value } = validation.itemSchema.validate(itemData)
 
-        if(!item) {
-            res.writeHead(404)
+        if (error) {
+            res.writeHead(400)
 
             return res.end(JSON.stringify({
-                message: 'Item not found'
+                message: error.details[0].message
             }))
         }
 
+        const item = await service.updateItem(db, id, value)
+
         res.writeHead(200)
-        
+
         res.end(JSON.stringify(item))
+
     } catch (error) {
         res.writeHead(400)
 
         res.end(JSON.stringify({
-            message: 'Invalid request body'
+            message: error.message
         }))
     }
 }
 
-async function remove(req, res) {
-    const id = Number(req.url.split('/')[2])
 
-    const item = await service.deleteItem(id)
+async function remove(req, res, db) {
+    try {
+        const id = req.url.split('/')[2]
 
-    if (!item) {
+        const item = await service.deleteItem(db, id)
+
+        res.writeHead(200)
+
+        res.end(JSON.stringify(item))
+
+    } catch (error) {
         res.writeHead(404)
 
-        return res.end(JSON.stringify({
-            message: 'item not found'
+        res.end(JSON.stringify({
+            message: error.message
         }))
     }
-
-    res.writeHead(200)
-
-    res.end(JSON.stringify(item))
 }
+
 
 function getRequestBody(req) {
     return new Promise((resolve, reject) => {
@@ -110,8 +147,8 @@ function getRequestBody(req) {
             reject(error)
         })
     })
-
 }
+
 
 module.exports = {
     getList,
