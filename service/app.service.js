@@ -1,96 +1,103 @@
-const {ObjectId} = require('mongodb')
+class Service {
 
-async function getAllItems(db, offset = 0, limit = 10) {
-    const collection = db.collection('items')
-
-    return await collection
-    .find()
-    .skip(offset)
-    .limit(limit)
-    .toArray()
-}
-
-
-async function getItemById(db, id) {
-    const collection = db.collection('items')
-
-    const item = await collection.findOne({
-        _id: new ObjectId(id)
-    })
-
-    if (!item) {
-        throw new Error('Item not found')
+    constructor(item) {
+        this.item = item
     }
 
-    return item
-}
 
+    async getAllItems(offset = 0, limit = 10) {
 
-async function createItem(db, itemData) {
-    const collection = db.collection('items')
-
-    const newItem = {
-        name: itemData.name,
-        description: itemData.description,
-        date: new Date().toISOString().split('T')[0]
+        return await this.item
+            .find()
+            .skip(offset)
+            .limit(limit)
     }
 
-    const result = await collection.insertOne(newItem)
 
-    return {
-        _id: result.insertedId,
-        ...newItem
+    async getByCategory(
+        category,
+        offset = 0,
+        limit = 10
+    ) {
+
+        return await this.item
+            .find({
+                category: category
+            })
+            .skip(offset)
+            .limit(limit)
     }
-}
 
-async function updateItem(db, id, itemData) {
-    const collection = db.collection('items')
 
-    const result = await collection.findOneAndUpdate(
-        {
-            _id: new ObjectId(id)
-        },
-        {
-            $set: {
-                name: itemData.name,
-                description: itemData.description
-            }
-        },
-        {
-            returnDocument: 'after'
+    async getItemById(id) {
+
+        const item =
+            await this.item.findById(id)
+
+
+        if (!item) {
+            throw new Error('Item not found')
         }
-    )
 
-    if (!result) {
-        throw new Error('Item not found')
+
+        return item
     }
 
-    return result
-}
+
+    async createItem(itemData) {
+
+        const item =
+            await this.item.create({
+                name: itemData.name,
+                category: itemData.category,
+                description: itemData.description
+            })
 
 
-async function deleteItem(db, id) {
-    const collection = db.collection('items')
-
-    const item = await collection.findOne({
-        _id: new ObjectId(id)
-    })
-
-    if (!item) {
-        throw new Error('Item not found')
+        return item
     }
 
-    await collection.deleteOne({
-        _id: new ObjectId(id)
-    })
 
-    return item
+    async updateItem(id, itemData) {
+
+        const item =
+            await this.item.findByIdAndUpdate(
+                id,
+                {
+                    name: itemData.name,
+                    category: itemData.category,
+                    description: itemData.description
+                },
+                {
+                    new: true,
+                    runValidators: true
+                }
+            )
+
+
+        if (!item) {
+            throw new Error('Item not found')
+        }
+
+
+        return item
+    }
+
+
+    async deleteItem(id) {
+
+        const item =
+            await this.item.findByIdAndDelete(id)
+
+
+        if (!item) {
+            throw new Error('Item not found')
+        }
+
+
+        return item
+    }
 }
 
-module.exports = {
-    getAllItems,
-    getItemById,
-    createItem,
-    updateItem,
-    deleteItem
-}
+
+module.exports = Service

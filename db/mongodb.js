@@ -1,14 +1,26 @@
-const { MongoClient } = require('mongodb')
-const config = require('../config/env')
+const mongoose = require('mongoose')
 
-const client = new MongoClient(config.mongoUri)
 
-async function connectDB() {
-    await client.connect()
+class Database {
 
-    console.log('DB connected')
+    constructor(config) {
+        this.config = config
+    }
 
-    return client.db(config.mongoDbName)
+
+    async connect() {
+
+        await mongoose.connect(
+            this.config.mongoUri,
+            {
+                dbName: this.config.mongoDbName
+            }
+        )
+
+
+        console.log('DB connected')
+    }
 }
 
-module.exports = connectDB
+
+module.exports = Database

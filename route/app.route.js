@@ -1,36 +1,126 @@
-const controller = require('../Controller/app.controller')
+const express = require('express')
 
-function appRoutes(req, res, db) {
 
-    if (req.method === 'GET' && /^\/app\/list(?:\?.*)?$/.test(req.url)) {
-        return controller.getList(req, res, db)
+class Router {
+
+    constructor(
+        controller,
+        userController,
+        authController,
+        authMiddleware
+    ) {
+
+        this.controller = controller
+        this.userController = userController
+        this.authController = authController
+        this.authMiddleware = authMiddleware
+
+        this.router = express.Router()
+
+        this.setupRoutes()
     }
 
-    if (req.method === 'GET' && /^\/app\/[a-fA-F0-9]{24}$/.test(req.url)) {
-        return controller.getById(req, res, db)
+
+    setupRoutes() {
+
+        this.router.post(
+            '/auth/register',
+            this.userController.register.bind(
+                this.userController
+            )
+        )
+
+        
+        this.router.post(
+            '/auth/login',
+            this.userController.login.bind(
+                this.userController
+            )
+        )
+
+
+        this.router.post(
+            '/auth/logout',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.authController.logout.bind(
+                this.authController
+            )
+        )
+
+
+        this.router.get(
+            '/app/list',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.getList.bind(
+                this.controller
+            )
+        )
+
+
+        this.router.get(
+            '/app/category/:category',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.getByCategory.bind(
+                this.controller
+            )
+        )
+
+
+        this.router.get(
+            '/app/:id',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.getById.bind(
+                this.controller
+            )
+        )
+
+
+        this.router.post(
+            '/app/create',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.create.bind(
+                this.controller
+            )
+        )
+
+
+        this.router.put(
+            '/app/update/:id',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.update.bind(
+                this.controller
+            )
+        )
+
+
+        this.router.delete(
+            '/app/delete/:id',
+            this.authMiddleware.authenticate.bind(
+                this.authMiddleware
+            ),
+            this.controller.remove.bind(
+                this.controller
+            )
+        )
     }
 
-    if (req.method === 'POST' && req.url === '/app/create') {
-        return controller.create(req, res, db)
+
+    getRouter() {
+        return this.router
     }
-
-    if (req.method === 'PUT' && /^\/app\/update\/[a-fA-F0-9]{24}$/.test(req.url)) {
-        return controller.update(req, res, db)
-    }
-
-    if (req.method === 'DELETE' && /^\/app\/delete\/[a-fA-F0-9]{24}$/.test(req.url)) {
-        return controller.remove(req, res, db)
-    }
-
-    res.writeHead(404, {
-        'Content-Type': 'application/json'
-    })
-
-    res.end(JSON.stringify({
-        message: 'Route not found'
-    }))
 }
 
-module.exports = {
-    appRoutes
-}
+
+module.exports = Router

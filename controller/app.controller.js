@@ -1,159 +1,183 @@
-const service = require('../Service/app.service')
-const validation = require('../Validation/app.validation')
+class Controller {
 
-
-async function getList(req, res, db) {
-    try {
-        const url = new URL(req.url, 'http://localhost')
-
-        const offset = Number(url.searchParams.get('offset')) || 0
-        const limit = Number(url.searchParams.get('limit')) || 10
-
-        const items = await service.getAllItems(db, offset, limit)
-
-        res.writeHead(200)
-
-        res.end(JSON.stringify(items))
-
-    } catch (error) {
-        res.writeHead(500)
-
-        res.end(JSON.stringify({
-            message: 'Internal server error'
-        }))
+    constructor(service, validation) {
+        this.service = service
+        this.validation = validation
     }
-}
 
 
-async function getById(req, res, db) {
-    try {
-        const id = req.url.split('/')[2]
+    async getList(req, res) {
 
-        const item = await service.getItemById(db, id)
+        try {
 
-        res.writeHead(200)
+            const offset = Number(req.query.offset) || 0
 
-        res.end(JSON.stringify(item))
-
-    } catch (error) {
-        res.writeHead(404)
-
-        res.end(JSON.stringify({
-            message: error.message
-        }))
-    }
-}
+            const limit = Number(req.query.limit) || 10
 
 
-async function create(req, res, db) {
-    try {
-        const body = await getRequestBody(req)
+            const items = await this.service.getAllItems(
+                    offset,
+                    limit
+                )
 
-        const itemData = JSON.parse(body)
+            return res.status(200).json(items)
 
-        const { error, value } = validation.itemSchema.validate(itemData)
+        } catch (error) {
 
-        if (error) {
-            res.writeHead(400)
-
-            return res.end(JSON.stringify({
-                message: error.details[0].message
-            }))
+            return res.status(500).json({
+                    message: 'Internal server error'
+                })
         }
-
-        const item = await service.createItem(db, value)
-
-        res.writeHead(201)
-
-        res.end(JSON.stringify(item))
-
-    } catch (error) {
-        res.writeHead(400)
-
-        res.end(JSON.stringify({
-            message: error.message
-        }))
     }
-}
 
 
-async function update(req, res, db) {
-    try {
-        const id = req.url.split('/')[3]
+    async getByCategory(req, res) {
 
-        const body = await getRequestBody(req)
+        try {
 
-        const itemData = JSON.parse(body)
+            const category = decodeURIComponent(req.params.category)
 
-        const { error, value } = validation.itemSchema.validate(itemData)
+            const offset = Number(req.query.offset) || 0
 
-        if (error) {
-            res.writeHead(400)
+            const limit = Number(req.query.limit) || 10
 
-            return res.end(JSON.stringify({
-                message: error.details[0].message
-            }))
+
+            const items = await this.service.getByCategory(
+                    category,
+                    offset,
+                    limit
+                )
+
+
+            return res.status(200).json(items)
+
+        } catch (error) {
+
+            return res.status(500).json({
+                    message: error.message
+                })
         }
+    }
 
-        const item = await service.updateItem(db, id, value)
 
-        res.writeHead(200)
+    async getById(req, res) {
 
-        res.end(JSON.stringify(item))
+        try {
 
-    } catch (error) {
-        res.writeHead(400)
+            const id = req.params.id
 
-        res.end(JSON.stringify({
-            message: error.message
-        }))
+            const item = await this.service.getItemById(id)
+
+            return res.status(200).json(item)
+
+        } catch (error) {
+
+            return res.status(404).json({
+                    message: error.message
+                })
+        }
+    }
+
+
+    async create(req, res) {
+
+        try {
+
+            const itemData = req.body
+
+            const {error, value} =
+                this.validation.itemSchema.validate(
+                    itemData
+                )
+
+
+            if (error) {
+
+                return res.status(400).json({
+                        message:
+                            error.details[0].message
+                    })
+            }
+
+
+            const item = await this.service.createItem(
+                    value
+                )
+
+
+            return res.status(201).json(item)
+
+        } catch (error) {
+
+            return res.status(400).json({
+                    message: error.message
+                })
+        }
+    }
+
+
+    async update(req, res) {
+
+        try {
+
+            const id = req.params.id
+
+            const itemData = req.body
+
+            const {error, value} =
+                this.validation.itemSchema.validate(
+                    itemData
+                )
+
+
+            if (error) {
+
+                return res.status(400).json({
+                        message:
+                            error.details[0].message
+                    })
+            }
+
+
+            const item = await this.service.updateItem(
+                    id,
+                    value
+                )
+
+
+            return res.status(200).json(item)
+
+        } catch (error) {
+
+            return res.status(400).json({
+                    message: error.message
+                })
+        }
+    }
+
+
+    async remove(req, res) {
+
+        try {
+
+            const id = req.params.id
+
+
+            const item = await this.service.deleteItem(
+                    id
+                )
+
+
+            return res.status(200).json(item)
+
+        } catch (error) {
+
+            return res.status(404).json({
+                    message: error.message
+                })
+        }
     }
 }
 
 
-async function remove(req, res, db) {
-    try {
-        const id = req.url.split('/')[2]
-
-        const item = await service.deleteItem(db, id)
-
-        res.writeHead(200)
-
-        res.end(JSON.stringify(item))
-
-    } catch (error) {
-        res.writeHead(404)
-
-        res.end(JSON.stringify({
-            message: error.message
-        }))
-    }
-}
-
-
-function getRequestBody(req) {
-    return new Promise((resolve, reject) => {
-        let body = ''
-
-        req.on('data', chunk => {
-            body += chunk
-        })
-
-        req.on('end', () => {
-            resolve(body)
-        })
-
-        req.on('error', error => {
-            reject(error)
-        })
-    })
-}
-
-
-module.exports = {
-    getList,
-    getById,
-    create,
-    update,
-    remove
-}
+module.exports = Controller
